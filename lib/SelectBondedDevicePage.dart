@@ -11,7 +11,7 @@ class SelectBondedDevicePage extends StatefulWidget {
   /// Then, if they are not avaliable, they would be disabled from the selection.
   final bool checkAvailability;
 
-  const SelectBondedDevicePage({this.checkAvailability = true});
+  const SelectBondedDevicePage({this.checkAvailability = false});
 
   @override
   _SelectBondedDevicePage createState() => new _SelectBondedDevicePage();
@@ -32,6 +32,11 @@ class _DeviceWithAvailability {
 }
 
 class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
+  BluetoothState _bluetoothState = BluetoothState.UNKNOWN;
+
+  Timer? _discoverableTimeoutTimer;
+  int _discoverableTimeoutSecondsLeft = 0;
+
   List<_DeviceWithAvailability> devices =
       List<_DeviceWithAvailability>.empty(growable: true);
 
@@ -44,6 +49,25 @@ class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
   @override
   void initState() {
     super.initState();
+    // Get current state
+    FlutterBluetoothSerial.instance.state.then((state) {
+      setState(() {
+        _bluetoothState = state;
+      });
+    });
+
+    // Listen for futher state changes
+    FlutterBluetoothSerial.instance
+        .onStateChanged()
+        .listen((BluetoothState state) {
+      setState(() {
+        _bluetoothState = state;
+
+        // Discoverable mode is disabled when Bluetooth gets disabled
+        _discoverableTimeoutTimer = null;
+        _discoverableTimeoutSecondsLeft = 0;
+      });
+    });
 
     _isDiscovering = widget.checkAvailability;
 
@@ -87,7 +111,7 @@ class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
           var _device = i.current;
           if (_device.device == r.device) {
             _device.availability = _DeviceAvailability.yes;
-            //_device.rssi = r.rssi;
+            _device.rssi = r.rssi;
           }
         }
       });
@@ -104,7 +128,8 @@ class _SelectBondedDevicePage extends State<SelectBondedDevicePage> {
   void dispose() {
     // Avoid memory leak (`setState` after dispose) and cancel discovery
     _discoveryStreamSubscription?.cancel();
-
+    FlutterBluetoothSerial.instance.setPairingRequestHandler(null);
+    _discoverableTimeoutTimer?.cancel();
     super.dispose();
   }
 
