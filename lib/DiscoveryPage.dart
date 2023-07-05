@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import './BluetoothDeviceListEntry.dart';
 
@@ -33,6 +34,21 @@ class _DiscoveryPage extends State<DiscoveryPage> {
     }
   }
 
+  void _checkPermissionStatus() async {
+    final permission = Permission.bluetoothConnect;
+    if (await permission.isDenied) {
+      final result = await permission.request();
+
+      if (result.isGranted) {
+        // Permission is granted
+      } else if (result.isDenied) {
+        // Permission is denied
+      } else if (result.isPermanentlyDenied) {
+        // Permission is permanently denied
+      }
+    }
+  }
+
   void _restartDiscovery() {
     setState(() {
       results.clear();
@@ -43,6 +59,8 @@ class _DiscoveryPage extends State<DiscoveryPage> {
   }
 
   void _startDiscovery() {
+    _checkPermissionStatus();
+
     _streamSubscription =
         FlutterBluetoothSerial.instance.startDiscovery().listen((r) {
       setState(() {
